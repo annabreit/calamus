@@ -426,9 +426,9 @@ class Nested(_JsonLDField, fields.Nested):
             self._schema = {"from": {}, "to": {}}
             for nest in self.nested:
                 if isinstance(nest, SchemaABC):
-                    rdf_type = str(normalize_type(nest.opts.rdf_type))
+                    rdf_types = normalize_type(nest.opts.rdf_type)
                     model = nest.opts.model
-                    if not rdf_type or not model:
+                    if not rdf_types or not model:
                         raise ValueError("Both rdf_type and model need to be set on the schema for nested to work")
                     _schema = copy.copy(nest)
                     _schema.context.update(context)
@@ -445,7 +445,8 @@ class Nested(_JsonLDField, fields.Nested):
                         _schema.exclude = set_class(self.exclude).union(original)
                     _schema._init_fields()
                     _schema._visited = self.root._visited
-                    self._schema["from"][rdf_type] = _schema
+                    for rdf_type in rdf_types:
+                        self._schema["from"][rdf_type] = _schema
                     self._schema["to"][model] = _schema
                 else:
                     if isinstance(nest, type) and issubclass(nest, SchemaABC):
@@ -460,23 +461,23 @@ class Nested(_JsonLDField, fields.Nested):
                     else:
                         schema_class = class_registry.get_class(nest)
 
-                    rdf_type = str(normalize_type(schema_class.opts.rdf_type))
+                    rdf_types = normalize_type(schema_class.opts.rdf_type)
                     model = schema_class.opts.model
-                    if not rdf_type or not model:
+                    if not rdf_types or not model:
                         raise ValueError("Both rdf_type and model need to be set on the schema for nested to work")
-
-                    self._schema["from"][rdf_type] = schema_class(
-                        many=False,
-                        only=self.only,
-                        exclude=self.exclude,
-                        context=context,
-                        load_only=self._nested_normalized_option("load_only"),
-                        dump_only=self._nested_normalized_option("dump_only"),
-                        lazy=self.root.lazy,
-                        flattened=self.root.flattened,
-                        _visited=self.root._visited,
-                        _top_level=False,
-                    )
+                    for rdf_type in rdf_types:
+                        self._schema["from"][rdf_type] = schema_class(
+                            many=False,
+                            only=self.only,
+                            exclude=self.exclude,
+                            context=context,
+                            load_only=self._nested_normalized_option("load_only"),
+                            dump_only=self._nested_normalized_option("dump_only"),
+                            lazy=self.root.lazy,
+                            flattened=self.root.flattened,
+                            _visited=self.root._visited,
+                            _top_level=False,
+                        )
                     self._schema["to"][model] = self._schema["from"][rdf_type]
         return self._schema
 
@@ -539,12 +540,14 @@ class Nested(_JsonLDField, fields.Nested):
 
     def load_single_entry(self, value, partial):
         """Loads a single nested entry from its schema."""
-        type_ = normalize_type(value["@type"])
+        types_ = normalize_type(value["@type"])
 
-        schema = self.schema["from"][str(type_)]
+        schema = None
+        for type_ in types_:
+            schema = self.schema["from"].get(str(type_))
 
-        if not schema:
-            ValueError("Type {} not found in {}.{}".format(value["@type"], type(self.parent), self.data_key))
+        if schema is None:
+            raise ValueError("Type {} not found in {}.{} available types are {}".format(value["@type"], type(self.parent), self.data_key, self.schema["from"].keys()))
         if not schema._all_objects and self.root._all_objects:
             schema._all_objects = self.root._all_objects
         schema._reversed_properties = self.root._reversed_properties

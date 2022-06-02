@@ -231,11 +231,14 @@ class JsonLDSchema(Schema, metaclass=JsonLDSchemaMeta):
 
         return ret
 
-    def _compare_ids(self, first, second):
-        """Compare if two ids or lists of ids match."""
+    def _compare_types(self, first, second, super_or_subset=False):
+        """Compare if two types or lists of types match."""
 
-        first = set(normalize_id(first))
-        second = set(normalize_id(second))
+        first = set(normalize_type(first))
+        second = set(normalize_type(second))
+
+        if super_or_subset:
+            return (first & second == first) | (first & second == second)
 
         return first & second == first | second
 
@@ -262,7 +265,7 @@ class JsonLDSchema(Schema, metaclass=JsonLDSchemaMeta):
             for d in data:
                 self._all_objects[d["@id"]] = d
 
-                if "@type" in d and self._compare_ids(d["@type"], self.opts.rdf_type):
+                if "@type" in d and self._compare_types(d["@type"], self.opts.rdf_type, super_or_subset=True):
                     new_data.append(d)
 
             data = new_data

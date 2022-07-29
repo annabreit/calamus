@@ -206,6 +206,7 @@ class JsonLDSchema(Schema, metaclass=JsonLDSchemaMeta):
             raise ValueError("No class type specified for schema")
 
         ret["@type"] = normalize_type(rdf_type)
+        #todo to include other types, we would have to extend here
 
         if self.flattened and self._top_level:
             ret = jsonld.flatten(ret)
@@ -360,6 +361,7 @@ class JsonLDSchema(Schema, metaclass=JsonLDSchemaMeta):
                     if key in ["@type", "@reverse"]:
                         # ignore JsonLD meta fields
                         continue
+                        #todo if we wanted to include other types, we would have to 'pass' here for @type
                     # ignore property if it's reversed and used elsewhere, for flattened case
                     if key in self._reversed_properties and any(
                         isinstance(self, s) for s in self._reversed_properties[key]
@@ -508,8 +510,11 @@ class JsonLDSchema(Schema, metaclass=JsonLDSchemaMeta):
 
         unset_data = {}
         for key, value in missing_data.items():
-            if hasattr(instance, key):
-                if not getattr(instance, key):
+            #if hasattr(instance, key):
+            #    if not getattr(instance, key):
+            # todo unknown elements are not included here
+            if hasattr(instance, key) or self.unknown == INCLUDE:
+                if not hasattr(instance, key) or not getattr(instance, key) :
                     setattr(instance, key, value)
             else:
                 unset_data[key] = value
